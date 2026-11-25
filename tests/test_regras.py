@@ -1,6 +1,12 @@
 from datetime import date
 from unittest.mock import Mock
 import pytest
+from confeitaria.regras import (
+    MENSAGEM_SEM_PEDIDOS_PENDENTES,
+    MENSAGEM_SEM_VENDAS_MES,
+    ordenar_menos_vendidos_mes,
+    preparar_pedidos_pendentes,
+)
 
 from confeitaria.regras import (
     EnviadorDeEmail,
@@ -90,3 +96,32 @@ def test_pedido_no_prazo_nao_envia_email():
 
     assert processador.total_notificados == 0
     enviador_email.enviar.assert_not_called()
+
+def test_menos_vendidos_retorna_aviso_quando_vazio_ou_sem_vendas():
+    assert ordenar_menos_vendidos_mes([]) == MENSAGEM_SEM_VENDAS_MES
+    assert ordenar_menos_vendidos_mes([("Bolo Chocolate", 0), ("Torta Limão", 0)]) == MENSAGEM_SEM_VENDAS_MES
+
+
+def test_menos_vendidos_ordena_crescente_com_zero_no_topo():
+    dados = [("Brigadeiro", 5), ("Torta Limão", 0), ("Bolo Chocolate", 2)]
+    assert ordenar_menos_vendidos_mes(dados) == [
+        ("Torta Limão", 0),
+        ("Bolo Chocolate", 2),
+        ("Brigadeiro", 5),
+    ]
+
+
+def test_pedidos_pendentes_filtra_ordena_e_avisa_quando_vazio():
+    assert preparar_pedidos_pendentes([]) == MENSAGEM_SEM_PEDIDOS_PENDENTES
+    assert (
+        preparar_pedidos_pendentes([{"id": 1, "data_entregue": "2026-11-20", "data_prevista": "2026-11-20"}])
+        == MENSAGEM_SEM_PEDIDOS_PENDENTES
+    )
+
+    pedidos = [
+        {"id": 10, "cliente": "Ana", "data_prevista": "2026-11-28", "data_entregue": None},
+        {"id": 11, "cliente": "Bruno", "data_entregue": "2026-11-24", "data_prevista": "2026-11-25"},
+        {"id": 12, "cliente": "Carla", "data_prevista": "2026-11-26", "data_entregue": None},
+    ]
+    resultado = preparar_pedidos_pendentes(pedidos)
+    assert [p["id"] for p in resultado] == [12, 10]
