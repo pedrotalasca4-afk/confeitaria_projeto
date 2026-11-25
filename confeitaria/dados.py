@@ -542,3 +542,78 @@ def deletar_solicitacao(conexao, id_cliente: int, id_pedido: int) -> bool:
     except pg.DatabaseError:
         conexao.rollback()
         return False
+    
+def listar_tipos_doce_menos_vendidos_mes(conexao, ano: int, mes: int) -> list[tuple[str, int]]:
+    cursor = conexao.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT
+                CONCAT(td.tipo, ' - ', td.sabor) AS nome_doce,
+                COUNT(ip.id_pedido) AS total_vendas
+            FROM tipo_doce td
+            LEFT JOIN doce d
+                ON d.id_tipo = td.id_tipo
+            LEFT JOIN item_pedido ip
+                ON ip.id_doce = d.id_doce
+            LEFT JOIN pedido p
+                ON p.id_pedido = ip.id_pedido
+               AND EXTRACT(YEAR FROM p.data_feita) = %s
+               AND EXTRACT(MONTH FROM p.data_feita) = %s
+            GROUP BY td.id_tipo, td.tipo, td.sabor
+            ORDER BY total_vendas ASC, nome_doce ASC;
+            """,
+            (ano, mes),
+        )
+        return cursor.fetchall()
+    except pg.DatabaseError:
+        conexao.rollback()
+        raise
+
+
+def listar_pedidos_pendentes_detalhados(conexao) -> list[dict]:
+    cursor = conexao.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT
+                p.id_pedido,
+                COALESCE(c.nome, 'Cliente não informado') AS cliente,
+                STRING_AGG(CONCAT(td.tipo, ' ', td.sabor), ', ' ORDER BY td.tipo, td.sabor) AS doces,
+                p.data_prevista,
+                p.data_entregue
+            FROM pedido p
+            LEFT JOIN solicitacao s
+                ON s.id_pedido = p.id_pedido
+            LEFT JOIN cliente c
+                ON c.id_cliente = COALESCE(s.id_cliente, (
+                    SELECT ip2.id_cliente
+                    FROM item_pedido ip2
+                    WHERE ip2.id_pedido = p.id_pedido
+                    LIMIT 1
+                ))
+            LEFT JOIN item_pedido ip
+                ON ip.id_pedido = p.id_pedido
+            LEFT JOIN doce d
+                ON d.id_doce = ip.id_doce
+            LEFT JOIN tipo_doce td
+                ON td.id_tipo = d.id_tipo
+            WHERE p.data_entregue IS NULL
+            GROUP BY p.id_pedido, c.nome, p.data_prevista, p.data_entregue
+            ORDER BY p.data_prevista ASC, p.id_pedido ASC;
+            """,
+        )
+        linhas = cursor.fetchall()
+        return [
+            {
+                "id_pedido": linha[0],
+                "cliente": linha[1],
+                "doces": linha[2] or "Sem itens",
+                "data_prevista": linha[3],
+                "data_entregue": linha[4],
+            }
+            for linha in linhas
+        ]
+    except pg.DatabaseError:
+        conexao.rollback()
+        raise
