@@ -1,6 +1,6 @@
 from datetime import date
 MENSAGEM_SEM_VENDAS_MES = "nenhuma venda este mês"
-MENSAGEM_SEM_PEDIDOS_PENDENTES = "nenhuma pedido pendente"
+MENSAGEM_SEM_PEDIDOS_PENDENTES = "nenhum pedido pendente"
 
 def calcular_preco_com_status_entrega(preco: float, status_entrega: str) -> float:
     """Calcula o preço com base nos três estados de entrega:
