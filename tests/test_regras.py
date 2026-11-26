@@ -17,7 +17,7 @@ from confeitaria.regras import (
     calcular_preco_com_desconto_atraso,
     calcular_preco_com_status_entrega,
 )
-
+from confeitaria.regras import MENSAGEM_SEM_DOCES, preparar_precos_doces
 
 def test_produto_entregue_no_dia_recebe_dois_por_cento():
     assert calcular_preco_com_status_entrega(100.0, "no_dia") == 102.0
@@ -125,3 +125,24 @@ def test_pedidos_pendentes_filtra_ordena_e_avisa_quando_vazio():
     ]
     resultado = preparar_pedidos_pendentes(pedidos)
     assert [p["id"] for p in resultado] == [12, 10]
+
+def test_preparar_precos_doces_vazio_ou_sem_ativos():
+    assert preparar_precos_doces([]) == MENSAGEM_SEM_DOCES
+    assert (
+        preparar_precos_doces(
+            [{"nome_doce": "Bolo - Chocolate", "preco": 45.0, "ativo": False}]
+        )
+        == MENSAGEM_SEM_DOCES
+    )
+
+
+def test_preparar_precos_doces_filtra_inativos_e_formata_preco():
+    itens = [
+        {"nome_doce": "Torta - Limão", "preco": 38.5, "ativo": True},
+        {"nome_doce": "Bolo - Chocolate", "preco": 45.0, "ativo": False},
+        {"nome_doce": "Brigadeiro - Tradicional", "preco": 4.0, "ativo": True},
+    ]
+    assert preparar_precos_doces(itens) == [
+        {"nome_doce": "Brigadeiro - Tradicional", "preco_unitario": "R$ 4,00"},
+        {"nome_doce": "Torta - Limão", "preco_unitario": "R$ 38,50"},
+    ]

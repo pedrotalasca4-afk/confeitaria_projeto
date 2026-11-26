@@ -617,3 +617,33 @@ def listar_pedidos_pendentes_detalhados(conexao) -> list[dict]:
     except pg.DatabaseError:
         conexao.rollback()
         raise
+
+def listar_precos_tipos_doce(conexao) -> list[dict]:
+    """Lista tipos de doce ativos com seu respectivo preço unitário."""
+    cursor = conexao.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT
+                CONCAT(td.tipo, ' - ', td.sabor) AS nome_doce,
+                d.preco,
+                COALESCE(td.ativo, TRUE) AS ativo
+            FROM tipo_doce td
+            INNER JOIN doce d
+                ON d.id_tipo = td.id_tipo
+            WHERE COALESCE(td.ativo, TRUE) IS TRUE
+            ORDER BY td.tipo ASC, td.sabor ASC, d.id_doce ASC;
+            """
+        )
+        linhas = cursor.fetchall()
+        return [
+            {
+                "nome_doce": linha[0],
+                "preco": linha[1],
+                "ativo": linha[2],
+            }
+            for linha in linhas
+        ]
+    except pg.DatabaseError:
+        conexao.rollback()
+        raise

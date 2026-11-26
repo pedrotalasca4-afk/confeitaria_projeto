@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 import psycopg2 as pg
-
 from confeitaria import dados, regras
 
 
@@ -9,7 +8,7 @@ class JanelaConfeitaria(tk.Tk):
     def __init__(self, conexao):
         super().__init__()
         self.conexao = conexao
-        self.title("Confeitaria - Aula 03")
+        self.title("Confeitaria")
         self.geometry("760x440")
 
         notebook = ttk.Notebook(self)
@@ -17,12 +16,16 @@ class JanelaConfeitaria(tk.Tk):
 
         self.aba_menos_vendidos = ttk.Frame(notebook)
         self.aba_pendentes = ttk.Frame(notebook)
+        self.aba_precos = ttk.Frame(notebook)
 
         notebook.add(self.aba_menos_vendidos, text="Menos vendidos no mês")
         notebook.add(self.aba_pendentes, text="Pedidos pendentes")
+        notebook.add(self.aba_precos, text="Preços dos doces")
 
         self._montar_aba_menos_vendidos()
         self._montar_aba_pendentes()
+        self._montar_aba_precos()
+
         self.atualizar_tudo()
 
     def _montar_aba_menos_vendidos(self):
@@ -39,7 +42,11 @@ class JanelaConfeitaria(tk.Tk):
         self.campo_mes.insert(0, "11")
         self.campo_mes.pack(side="left", padx=(4, 12))
 
-        ttk.Button(topo, text="Atualizar", command=self.carregar_menos_vendidos).pack(side="left")
+        ttk.Button(
+            topo,
+            text="Atualizar",
+            command=self.carregar_menos_vendidos,
+        ).pack(side="left")
 
         self.aviso_vendas = ttk.Label(self.aba_menos_vendidos, text="")
         self.aviso_vendas.pack(anchor="w", pady=(0, 4))
@@ -56,7 +63,12 @@ class JanelaConfeitaria(tk.Tk):
     def _montar_aba_pendentes(self):
         topo = ttk.Frame(self.aba_pendentes)
         topo.pack(fill="x", pady=(0, 8))
-        ttk.Button(topo, text="Atualizar pendentes", command=self.carregar_pendentes).pack(side="left")
+
+        ttk.Button(
+            topo,
+            text="Atualizar pendentes",
+            command=self.carregar_pendentes,
+        ).pack(side="left")
 
         self.aviso_pendentes = ttk.Label(self.aba_pendentes, text="")
         self.aviso_pendentes.pack(anchor="w", pady=(0, 4))
@@ -72,6 +84,28 @@ class JanelaConfeitaria(tk.Tk):
         self.tabela_pendentes.heading("data_prevista", text="Data Prevista")
         self.tabela_pendentes.pack(fill="both", expand=True)
 
+    def _montar_aba_precos(self):
+        topo = ttk.Frame(self.aba_precos)
+        topo.pack(fill="x", pady=(0, 8))
+
+        ttk.Button(
+            topo,
+            text="Atualizar preços",
+            command=self.carregar_precos_doces,
+        ).pack(side="left")
+
+        self.aviso_precos = ttk.Label(self.aba_precos, text="")
+        self.aviso_precos.pack(anchor="w", pady=(0, 4))
+
+        self.tabela_precos = ttk.Treeview(
+            self.aba_precos,
+            columns=("tipo_doce", "preco_unitario"),
+            show="headings",
+        )
+        self.tabela_precos.heading("tipo_doce", text="Tipo de Doce")
+        self.tabela_precos.heading("preco_unitario", text="Preço Unitário")
+        self.tabela_precos.pack(fill="both", expand=True)
+
     def carregar_menos_vendidos(self):
         for item in self.tabela_vendas.get_children():
             self.tabela_vendas.delete(item)
@@ -81,13 +115,23 @@ class JanelaConfeitaria(tk.Tk):
             ano = int(self.campo_ano.get().strip())
             mes = int(self.campo_mes.get().strip())
         except ValueError:
-            messagebox.showwarning("Confira os dados", "Informe ano e mês numéricos válidos.")
+            messagebox.showwarning(
+                "Confira os dados",
+                "Informe ano e mês numéricos válidos.",
+            )
             return
 
         try:
-            brutos = dados.listar_tipos_doce_menos_vendidos_mes(self.conexao, ano, mes)
+            brutos = dados.listar_tipos_doce_menos_vendidos_mes(
+                self.conexao,
+                ano,
+                mes,
+            )
         except pg.DatabaseError as erro:
-            messagebox.showerror("Erro no banco", f"Falha ao consultar vendas do mês: {erro}")
+            messagebox.showerror(
+                "Erro no banco",
+                f"Falha ao consultar vendas do mês: {erro}",
+            )
             return
 
         resultado = regras.ordenar_menos_vendidos_mes(brutos)
@@ -107,7 +151,10 @@ class JanelaConfeitaria(tk.Tk):
         try:
             brutos = dados.listar_pedidos_pendentes_detalhados(self.conexao)
         except pg.DatabaseError as erro:
-            messagebox.showerror("Erro no banco", f"Falha ao consultar pedidos pendentes: {erro}")
+            messagebox.showerror(
+                "Erro no banco",
+                f"Falha ao consultar pedidos pendentes: {erro}",
+            )
             return
 
         resultado = regras.preparar_pedidos_pendentes(brutos)
@@ -120,9 +167,42 @@ class JanelaConfeitaria(tk.Tk):
             self.tabela_pendentes.insert(
                 "",
                 "end",
-                values=(p["id_pedido"], p["cliente"], p["doces"], p["data_prevista"]),
+                values=(
+                    p["id_pedido"],
+                    p["cliente"],
+                    p["doces"],
+                    p["data_prevista"],
+                ),
+            )
+
+    def carregar_precos_doces(self):
+        for item in self.tabela_precos.get_children():
+            self.tabela_precos.delete(item)
+        self.aviso_precos.config(text="")
+
+        try:
+            brutos = dados.listar_precos_tipos_doce(self.conexao)
+        except pg.DatabaseError as erro:
+            messagebox.showerror(
+                "Erro no banco",
+                f"Falha ao consultar preços dos doces: {erro}",
+            )
+            return
+
+        resultado = regras.preparar_precos_doces(brutos)
+        if isinstance(resultado, str):
+            self.aviso_precos.config(text=resultado)
+            messagebox.showinfo("Aviso", resultado)
+            return
+
+        for item in resultado:
+            self.tabela_precos.insert(
+                "",
+                "end",
+                values=(item["nome_doce"], item["preco_unitario"]),
             )
 
     def atualizar_tudo(self):
         self.carregar_menos_vendidos()
         self.carregar_pendentes()
+        self.carregar_precos_doces()

@@ -15,7 +15,7 @@ from confeitaria.dados import (
     listar_pedidos_pendentes_detalhados,
     listar_tipos_doce_menos_vendidos_mes,
 )
-
+from confeitaria.dados import listar_precos_tipos_doce
 
 def test_criar_e_ler_cliente(conexao):
     cliente = criar_cliente(
@@ -118,3 +118,21 @@ def test_listar_pedidos_pendentes_detalhados_ignora_entregues(conexao):
     assert len(pendentes) == 1
     assert pendentes[0]["id_pedido"] == pendente.id_pedido
     assert pendentes[0]["cliente"] == "João"
+
+def test_listar_precos_tipos_doce_ativos(conexao):
+    td_ativo = criar_tipo_doce(conexao, "Limão", "Torta")
+    td_inativo = criar_tipo_doce(conexao, "Chocolate", "Bolo")
+    criar_doce(conexao, td_ativo.id_tipo, 38.50)
+    criar_doce(conexao, td_inativo.id_tipo, 45.00)
+
+    cursor = conexao.cursor()
+    cursor.execute(
+        "UPDATE tipo_doce SET ativo = FALSE WHERE id_tipo = %s;",
+        (td_inativo.id_tipo,),
+    )
+    conexao.commit()
+
+    precos = listar_precos_tipos_doce(conexao)
+    nomes = [p["nome_doce"] for p in precos]
+    assert "Torta - Limão" in nomes
+    assert "Bolo - Chocolate" not in nomes

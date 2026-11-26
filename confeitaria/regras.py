@@ -1,6 +1,7 @@
 from datetime import date
 MENSAGEM_SEM_VENDAS_MES = "nenhuma venda este mês"
 MENSAGEM_SEM_PEDIDOS_PENDENTES = "nenhum pedido pendente"
+MENSAGEM_SEM_DOCES = "nenhum doce cadastrado"
 
 def calcular_preco_com_status_entrega(preco: float, status_entrega: str) -> float:
     """Calcula o preço com base nos três estados de entrega:
@@ -99,3 +100,44 @@ def preparar_pedidos_pendentes(pedidos: list[dict]) -> list[dict] | str:
         return MENSAGEM_SEM_PEDIDOS_PENDENTES
     
     return sorted(pendentes, key=lambda p: str(p.get("data_prevista", "")))
+
+def formatar_moeda_br(valor: float) -> str:
+    """Formata um valor numérico como moeda brasileira (ex.: R$ 45,00)."""
+    formatado = f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {formatado}"
+
+
+def preparar_precos_doces(itens: list[dict]) -> list[dict] | str:
+    """Filtra tipos de doce ativos, ordena por nome e formata o preço unitário.
+
+    Espera dicionários com chaves: 'nome_doce' (str), 'preco' (float/Decimal/int)
+    e opcionalmente 'ativo' (bool, padrão True).
+    Retorna 'nenhum doce cadastrado' se não houver itens ativos válidos.
+    """
+    ativos = []
+    for item in itens:
+        if item.get("ativo", True) is False:
+            continue
+        nome = str(item.get("nome_doce", "")).strip()
+        preco = item.get("preco")
+        if not nome or preco is None:
+            continue
+        ativos.append(
+            {
+                "nome_doce": nome,
+                "preco_unitario": formatar_moeda_br(preco),
+                "_preco_num": float(preco),
+            }
+        )
+
+    if not ativos:
+        return MENSAGEM_SEM_DOCES
+
+    ativos.sort(key=lambda d: (d["nome_doce"].lower(), d["_preco_num"]))
+    return [
+        {
+            "nome_doce": d["nome_doce"],
+            "preco_unitario": d["preco_unitario"],
+        }
+        for d in ativos
+    ]
